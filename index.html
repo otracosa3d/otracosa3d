@@ -34,6 +34,13 @@ button.g{background:transparent;color:var(--tx);border:2px solid var(--bd);paddi
 .tot{display:flex;justify-content:space-between;align-items:center;gap:10px}
 input{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px solid var(--bd);background:var(--bg);color:var(--tx);margin-bottom:8px}
 #empty{color:var(--mu);font-size:.9rem}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-top:10px}
+.step{background:var(--card);border:2.5px solid var(--bd);border-radius:16px;padding:14px;text-align:center}
+.step b{display:flex;align-items:center;justify-content:center;width:40px;height:40px;margin:0 auto 8px;border-radius:50%;background:var(--ac);color:var(--acx);font-size:1.2rem}
+.step:nth-child(even) b{background:var(--sh);color:#1a0a2e}
+.step:nth-child(3) b{background:#7b0fa3;color:#fff}
+.step h3{margin:0 0 4px;font-size:1rem;font-weight:800;color:var(--hd)}
+.step p{margin:0;font-size:.88rem;color:var(--mu)}
 .card img{width:100%;aspect-ratio:3/4;object-fit:contain;background:#fff;border-radius:10px;border:2px solid var(--bd)}
 h2{margin:22px 0 4px;font-size:1.25rem;font-weight:800;color:var(--hd)}
 .sub{margin:0 0 12px;color:var(--mu);font-size:.92rem}
@@ -54,6 +61,14 @@ select{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px so
 <div class="grid" id="g3"></div>
 <h2>Más productos</h2>
 <div class="grid" id="g4"></div>
+<h2>¿Cómo encargar tu figura 3D?</h2>
+<div class="steps">
+<div class="step"><b>1</b><h3>Elige el tamaño</h3><p>Escoge entre 10, 15 o 20 cm.</p></div>
+<div class="step"><b>2</b><h3>Envíanos la foto</h3><p>Mándanos 2 fotos de la persona o de tu mascota por WhatsApp.</p></div>
+<div class="step"><b>3</b><h3>Aprueba el diseño</h3><p>Te mostramos el diseño y tú lo apruebas.</p></div>
+<div class="step"><b>4</b><h3>Realiza el pago</h3><p>Te compartimos los datos de pago por WhatsApp.</p></div>
+<div class="step"><b>5</b><h3>Fabricamos y entregamos</h3><p>Hasta 7 días hábiles.</p></div>
+</div>
 </main>
 <div id="bar"><div>
   <div id="items"></div>
