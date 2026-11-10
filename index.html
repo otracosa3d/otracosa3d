@@ -64,6 +64,15 @@ input{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px sol
 h2{margin:22px 0 4px;font-size:1.25rem;font-weight:800;color:var(--hd)}
 .sub{margin:0 0 12px;color:var(--mu);font-size:.92rem}
 select{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px solid var(--bd);background:var(--bg);color:var(--tx);font-weight:600}
+#cartbtn{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));max-width:420px;margin:auto;z-index:20;padding:13px 16px;font-size:1rem;box-shadow:5px 5px 0 var(--sh)}
+#cartview{position:fixed;inset:0;z-index:40;background:rgba(20,5,40,.55);display:flex;align-items:flex-end;justify-content:center}
+.cvbox{background:var(--card);border:3px solid var(--bd);border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:16px 18px calc(18px + env(safe-area-inset-bottom,0px))}
+.cvtop{display:flex;justify-content:space-between;align-items:center}.cvtop h2{margin:0}
+#cartview #items{max-height:none;margin:10px 0}
+.cvh{margin:14px 0 8px;color:var(--hd)}
+#cerr{color:#d6336c;font-weight:700;margin:0 0 8px;font-size:.9rem}
+#send{width:100%;padding:13px;margin-bottom:8px}
+#seguir{width:100%;padding:10px}
 </style>
 </head>
 <body>
@@ -88,11 +97,21 @@ select{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px so
 </div>
 </main>
 <div id="seg" hidden></div>
-<div id="bar"><div>
-  <div id="items"></div>
-  <div class="two"><input id="nom" placeholder="Tu nombre" autocomplete="name"><input id="tel" type="tel" placeholder="Tu WhatsApp (para avisarte)" autocomplete="tel"></div>
-  <div class="tot"><strong id="tot">Total: $0</strong><button id="send" disabled>Pedir por WhatsApp</button></div>
-</div></div>
+<button id="cartbtn" hidden>🛒 Ver carrito (<span id="cn">0</span>) · <span id="ct">$0</span></button>
+<div id="cartview" hidden>
+  <div class="cvbox">
+    <div class="cvtop"><h2>Tu carrito</h2><button class="g" id="cvx">Cerrar</button></div>
+    <div id="items"></div>
+    <div class="tot"><strong id="tot">Total: $0</strong></div>
+    <div id="cnotas" class="st"></div>
+    <h3 class="cvh">Tus datos</h3>
+    <input id="nom" placeholder="Tu nombre" autocomplete="name">
+    <input id="tel" type="tel" placeholder="Tu WhatsApp (ej: 9 1234 5678)" autocomplete="tel">
+    <div id="cerr"></div>
+    <button id="send">Pedir por WhatsApp</button>
+    <button class="g" id="seguir">Seguir comprando</button>
+  </div>
+</div>
 <script>
 /* ==== DATOS EDITABLES (Claude actualiza esta sección) ==== */
 const CONFIG = { whatsapp: "56950086086", moneda: "CLP", actualizado: "2026-11-09", ventasUrl: "https://script.google.com/macros/s/AKfycbyUwBkkuveouRZRdFCRPJBlwJCce_tuw6NB1odwwG5iArVLhQ0EVzjEiXTKiS7CaCJl/exec" /* URL del Apps Script de seguimiento */ };
@@ -224,6 +243,10 @@ const wa = (m, sinSeg, cliente) => {
 };
 const maxQ = p => (p.stock === null || p.stock === undefined) ? 10 : p.stock;
 
+const fotoDe = p => p.tipo === "cotiza" ? "2 fotos de la persona" : p.tipo === "llavero" ? "2 fotos de la mascota" : p.id === "promo" ? "las fotos para armar la figura" : "";
+const precioDe = (p, tam) => p.soloCotiza ? null : p.tipo === "cotiza" ? TAMANOS[tam].precio : p.precio;
+const nombreDe = (p, tam) => tam != null ? p.nombre + " " + TAMANOS[tam].cm + " cm" : p.nombre;
+
 function card(p) {
   const c = document.createElement("div"); c.className = "card";
   if (p.img && IMG[p.img]) { const im = document.createElement("img"); im.src = IMG[p.img]; im.alt = p.nombre; c.appendChild(im); }
@@ -234,36 +257,28 @@ function card(p) {
   const st = document.createElement("div"); st.className = "st";
   const sin = p.tipo === "venta" && p.stock !== null && p.stock <= 0;
   st.textContent = p.tipo !== "venta" ? "Hecho a pedido" : sin ? "Agotado" : p.stock == null ? "Hecho a pedido" : (p.stock <= 3 ? "Quedan " + p.stock : "Disponible");
-  const b = document.createElement("button"); b.disabled = sin;
   let sel = null, nota = null;
-  if (p.tipo === "cotiza" && p.soloCotiza) {
-    nota = document.createElement("div"); nota.className = "st"; nota.textContent = "📷 Debes enviarnos 2 fotos de la persona por WhatsApp.";
-    b.textContent = "Cotiza por WhatsApp";
-    b.onclick = () => wa("Hola, quiero cotizar: " + p.nombre.toLowerCase() + ". Te envío 2 fotos de la persona.", true);
-  } else if (p.tipo === "cotiza") {
+  if (p.tipo === "cotiza" && !p.soloCotiza) {
     sel = document.createElement("select");
     TAMANOS.forEach((t, i) => { const o = document.createElement("option"); o.value = i; o.textContent = t.cm + " cm · " + fmt(t.precio); sel.appendChild(o); });
     sel.onchange = () => { pr.textContent = fmt(TAMANOS[sel.value].precio); };
-    nota = document.createElement("div"); nota.className = "st"; nota.textContent = "📷 Debes enviarnos 2 fotos de la persona por WhatsApp.";
-    b.textContent = "Pedir por WhatsApp";
-    b.onclick = () => { const t = TAMANOS[sel.value]; wa("Hola, quiero pedir una figura 3D personalizada (" + p.nombre.toLowerCase() + ") de " + t.cm + " cm por " + fmt(t.precio) + ". Te envío 2 fotos de la persona."); };
-  } else if (p.tipo === "llavero") {
-    nota = document.createElement("div"); nota.className = "st"; nota.textContent = "📷 Debes enviarnos 2 fotos de la mascota por WhatsApp.";
-    b.textContent = "Pedir por WhatsApp";
-    b.onclick = () => wa("Hola, quiero pedir un llavero de mi mascota de " + p.cm + " cm por " + fmt(p.precio) + ". Te envío 2 fotos de la mascota.");
-  } else if (p.tipo === "directo") {
-    b.textContent = "Pedir por WhatsApp";
-    b.onclick = () => wa("Hola, quiero pedir: " + p.nombre + " (" + p.cm + " cm) por " + fmt(p.precio) + ".");
-  } else { b.textContent = "Agregar"; b.onclick = () => add(p.id, 1); }
+  }
+  if (p.tipo === "cotiza" || p.tipo === "llavero") { nota = document.createElement("div"); nota.className = "st"; nota.textContent = "📷 Debes enviarnos " + fotoDe(p) + " por WhatsApp."; }
+  const b = document.createElement("button"); b.disabled = sin;
+  b.textContent = p.soloCotiza ? "Agregar al carrito (a cotizar)" : "Agregar al carrito";
+  b.onclick = () => {
+    add(p.id, sel ? Number(sel.value) : null, 1);
+    const t0 = b.textContent; b.textContent = "✔ Agregado"; setTimeout(() => { b.textContent = t0; }, 900);
+  };
   c.append(h, d); if (!p.soloCotiza) c.append(pr); c.append(st);
-  if (sel) c.append(sel, nota); else if (nota) c.append(nota);
+  if (sel) c.append(sel); if (nota) c.append(nota);
   c.append(b);
   return c;
 }
 
 const SECS = [["promo","Promo del momento"],["personalizadas","Figuras personalizadas"],["mascota","Llaveros de mascota"],["funko","Funko Pop"]].concat(CATS);
 const CHIP = { promo: "Promo", personalizadas: "Personalizadas", mascota: "Llavero mascota" };
-const SUBS = { personalizadas: "Elige el tamaño y haz tu pedido por WhatsApp. Debes enviarnos 2 fotos de la persona." };
+const SUBS = { personalizadas: "Elige el tamaño y agrégalo al carrito. Debes enviarnos 2 fotos de la persona por WhatsApp." };
 const secOf = p => p.cat || (p.tipo === "cotiza" ? "personalizadas" : p.tipo === "llavero" ? "mascota" : p.tipo === "directo" ? "funko" : "promo");
 const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 let sel = "todos";
@@ -320,41 +335,58 @@ $("trkb").onclick = async () => {
 };
 try { $("trkq").value = JSON.parse(localStorage.getItem("oc_seg") || "[]")[0] || ""; } catch (e) {}
 
-function add(id, n) {
-  const p = PRODUCTS.find(x => x.id === id);
-  const q = Math.max(0, Math.min(maxQ(p), (cart[id] || 0) + n));
-  if (q === 0) delete cart[id]; else cart[id] = q;
+const keyOf = (id, tam) => tam == null ? id : id + "|" + tam;
+function add(id, tam, n) {
+  const p = PRODUCTS.find(x => x.id === id), k = keyOf(id, tam);
+  const q = Math.max(0, Math.min(maxQ(p), (cart[k] ? cart[k].q : 0) + n));
+  if (q === 0) delete cart[k]; else cart[k] = { id, tam, q };
   renderCart();
 }
 
 function renderCart() {
   const box = $("items"); box.innerHTML = "";
-  let total = 0, count = 0;
-  Object.keys(cart).forEach(id => {
-    const p = PRODUCTS.find(x => x.id === id), q = cart[id];
-    total += p.precio * q; count += q;
+  let total = 0, count = 0, cot = false;
+  Object.keys(cart).forEach(k => {
+    const { id, tam, q } = cart[k], p = PRODUCTS.find(x => x.id === id), pr = precioDe(p, tam);
+    count += q; if (pr == null) cot = true; else total += pr * q;
     const r = document.createElement("div"); r.className = "row";
-    const t = document.createElement("span"); t.textContent = p.nombre;
+    const t = document.createElement("span"); t.textContent = nombreDe(p, tam) + " · " + (pr == null ? "a cotizar" : fmt(pr * q));
     const qb = document.createElement("span"); qb.className = "q";
-    const m = document.createElement("button"); m.className = "g"; m.textContent = "−"; m.onclick = () => add(id, -1);
+    const m = document.createElement("button"); m.className = "g"; m.textContent = "−"; m.onclick = () => add(id, tam, -1);
     const n = document.createElement("span"); n.textContent = q;
-    const pl = document.createElement("button"); pl.className = "g"; pl.textContent = "+"; pl.onclick = () => add(id, 1);
+    const pl = document.createElement("button"); pl.className = "g"; pl.textContent = "+"; pl.onclick = () => add(id, tam, 1);
     qb.append(m, n, pl); r.append(t, qb); box.appendChild(r);
   });
-  if (!count) { const e = document.createElement("div"); e.id = "empty"; e.textContent = "Tu pedido está vacío."; box.appendChild(e); }
-  $("tot").textContent = "Total: " + fmt(total);
-  $("send").disabled = !count;
+  if (!count) { const e = document.createElement("div"); e.id = "empty"; e.textContent = "Tu carrito está vacío."; box.appendChild(e); }
+  const extra = cot ? " + ítems por cotizar" : "";
+  $("tot").textContent = "Total: " + fmt(total) + extra;
+  $("cn").textContent = count; $("ct").textContent = fmt(total) + (cot ? "+" : "");
+  $("cartbtn").hidden = !count;
+  const fs = [...new Set(Object.values(cart).map(c => fotoDe(PRODUCTS.find(x => x.id === c.id))).filter(Boolean))];
+  $("cnotas").textContent = fs.length ? "📷 Después de pedir debes enviarnos por WhatsApp: " + fs.join(" y ") + "." : "";
+  if (!count && !$("cartview").hidden) cerrarCarrito();
 }
+function cerrarCarrito() { $("cartview").hidden = true; }
+$("cartbtn").onclick = () => { $("cerr").textContent = ""; $("cartview").hidden = false; };
+$("cvx").onclick = cerrarCarrito; $("seguir").onclick = cerrarCarrito;
+$("cartview").onclick = e => { if (e.target === $("cartview")) cerrarCarrito(); };
 
 $("send").onclick = () => {
-  const nom = $("nom").value.trim();
-  let total = 0, pedido = false;
-  const lineas = Object.keys(cart).map(id => {
-    const p = PRODUCTS.find(x => x.id === id), q = cart[id];
-    total += p.precio * q; if (p.stock === null) pedido = true;
-    return "• " + q + " x " + p.nombre + " (" + fmt(p.precio * q) + ")";
+  if (!Object.keys(cart).length) return;
+  const nom = $("nom").value.trim(), tel = telDigits();
+  if (!nom || !tel) { $("cerr").textContent = "Escribe tu nombre y tu WhatsApp (con código de país si no es de Chile) para avisarte del estado de tu pedido."; return; }
+  $("cerr").textContent = "";
+  let total = 0, cot = false; const fs = new Set();
+  const lineas = Object.keys(cart).map(k => {
+    const { id, tam, q } = cart[k], p = PRODUCTS.find(x => x.id === id), pr = precioDe(p, tam), f = fotoDe(p);
+    if (f) fs.add(f);
+    if (pr == null) { cot = true; return "• " + q + " x " + nombreDe(p, tam) + " (a cotizar)"; }
+    total += pr * q; return "• " + q + " x " + nombreDe(p, tam) + " (" + fmt(pr * q) + ")";
   });
-  wa("Hola, quiero hacer un pedido" + (nom ? " a nombre de " + nom : "") + ":\n" + lineas.join("\n") + "\nTotal: " + fmt(total) + (pedido ? "\nTe envío las fotos para armar la figura." : ""), false, nom);
+  const msg = "Hola, quiero hacer un pedido a nombre de " + nom + ":\n" + lineas.join("\n") + "\nTotal: " + fmt(total) + (cot ? " + ítems por cotizar" : "") + (fs.size ? "\nTe envío " + [...fs].join(" y ") + "." : "");
+  wa(msg, false, nom);
+  Object.keys(cart).forEach(k => delete cart[k]);
+  renderCart(); cerrarCarrito();
 };
 
 renderGrid(); renderCart();
