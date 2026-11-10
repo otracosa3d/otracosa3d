@@ -253,7 +253,7 @@ function registrar(id, cliente, detalle, telefono, total) {
   try { const l = JSON.parse(localStorage.getItem("oc_seg") || "[]"); l.unshift(id); localStorage.setItem("oc_seg", JSON.stringify(l.slice(0, 20))); } catch (e) {}
   if (!CONFIG.ventasUrl) return Promise.resolve(false);
   const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 8000);
-  return fetch(CONFIG.ventasUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ id, cliente, detalle, telefono, total: total == null ? null : total, medio: "Web" }), signal: ac.signal })
+  return fetch(CONFIG.ventasUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ id, cliente, detalle, telefono, total: total == null ? null : total }), signal: ac.signal })
     .then(r => r.text()).then(t => /ok/i.test(t)).catch(() => false).finally(() => clearTimeout(tm));
 }
 function mostrarSeg(id) {

@@ -113,11 +113,11 @@ main{padding-bottom:60px}
 <script>
 const CONFIG = { ventasUrl: "https://script.google.com/macros/s/AKfycbyUwBkkuveouRZRdFCRPJBlwJCce_tuw6NB1odwwG5iArVLhQ0EVzjEiXTKiS7CaCJl/exec" };
 const ESTADOS = ["Agendado", "En preparación", "Listo para entrega", "Entregado"];
-const MEDIOS = ["Web", "WhatsApp", "Instagram", "En persona", "Otro"];
+const ENTREGAS = ["En persona", "Envío"];
 const $ = id => document.getElementById(id);
 const fmt = n => "$" + Number(n).toLocaleString("es-CL");
 const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-const ADM = { token: null, pedidos: [], tab: "pedidos", est: "todos", medio: "todos", q: "" };
+const ADM = { token: null, pedidos: [], tab: "pedidos", est: "todos", entrega: "todos", q: "" };
 try { ADM.token = sessionStorage.getItem("oc_adm") || null; } catch (e) {}
 const el = (t, p, ...k) => { const e = document.createElement(t); if (p) Object.assign(e, p); k.flat().forEach(x => { if (x != null && x !== false) e.append(x); }); return e; };
 const txt = (t, c) => el("div", { className: c || "", textContent: t });
@@ -211,12 +211,12 @@ async function eliminar(p) {
 function tPedidos() {
   const q = el("input", { type: "search", placeholder: "Buscar por cliente, teléfono, N° o detalle…", value: ADM.q });
   const se = el("select", null, el("option", { value: "todos", textContent: "Todos los estados" }), optionsDe(ESTADOS)); se.value = ADM.est;
-  const sm = el("select", null, el("option", { value: "todos", textContent: "Todos los medios" }), optionsDe(MEDIOS)); sm.value = ADM.medio;
+  const sm = el("select", null, el("option", { value: "todos", textContent: "Toda forma de entrega" }), optionsDe(ENTREGAS)); sm.value = ADM.entrega;
   const lista = el("div", { className: "agrid" });
   const pintar = () => {
-    ADM.q = q.value; ADM.est = se.value; ADM.medio = sm.value; lista.innerHTML = "";
+    ADM.q = q.value; ADM.est = se.value; ADM.entrega = sm.value; lista.innerHTML = "";
     const nq = norm(q.value.trim());
-    const ps = ADM.pedidos.filter(p => (se.value === "todos" || p.estado === se.value) && (sm.value === "todos" || p.medio === sm.value) &&
+    const ps = ADM.pedidos.filter(p => (se.value === "todos" || p.estado === se.value) && (sm.value === "todos" || p.entrega === sm.value) &&
       (!nq || norm([p.id, p.cliente, p.telefono, p.detalle].join(" ")).includes(nq)));
     if (!ps.length) lista.append(txt("No hay pedidos con ese filtro.", "st"));
     ps.forEach(p => lista.append(cPedido(p)));
@@ -240,18 +240,18 @@ function cPedido(p) {
   const nom = el("input", { placeholder: "Cliente", value: p.cliente });
   const tel = el("input", { type: "tel", placeholder: "Teléfono", value: p.telefono });
   const det = el("textarea", { rows: 4, maxLength: 2000, value: p.detalle });
-  const med = el("select", null, optionsDe(MEDIOS, p.medio)); med.value = p.medio;
+  const med = el("select", null, optionsDe(ENTREGAS, p.entrega)); med.value = p.entrega || "En persona";
   const emsg = txt("", "st");
-  const form = el("div", { hidden: true }, txt("Cliente", "st"), nom, txt("Teléfono", "st"), tel, txt("Detalle", "st"), det, txt("Medio", "st"), med,
+  const form = el("div", { hidden: true }, txt("Cliente", "st"), nom, txt("Teléfono", "st"), tel, txt("Detalle", "st"), det, txt("Forma de entrega", "st"), med,
     el("button", { textContent: "Guardar cambios", onclick: async () => {
-      const j = await admCall({ action: "update", id: p.id, cliente: nom.value.trim(), telefono: tel.value, detalle: det.value, medio: med.value }, emsg);
+      const j = await admCall({ action: "update", id: p.id, cliente: nom.value.trim(), telefono: tel.value, detalle: det.value, entrega: med.value }, emsg);
       if (j) admCargar();
     } }), emsg);
   const ed = el("button", { className: "g", textContent: "Editar datos", onclick: () => { form.hidden = !form.hidden; } });
   const del = el("button", { className: "danger", textContent: "Eliminar", onclick: () => eliminar(p) });
   return el("div", { className: "card" },
     el("div", { className: "arow" }, el("strong", { textContent: p.id }), txt(p.fecha, "st")),
-    txt((p.cliente || "(sin nombre)") + (p.telefono ? " · +" + p.telefono : "") + " · " + p.medio, "d"),
+    txt((p.cliente || "(sin nombre)") + (p.telefono ? " · +" + p.telefono : "") + (p.entrega ? " · " + p.entrega : ""), "d"),
     txt(p.detalle, "adet"), se, el("div", { className: "arow" }, tot, gt), aviso, el("div", { className: "arow" }, ed, del), form, msg);
 }
 function tNuevo() {
@@ -259,13 +259,13 @@ function tNuevo() {
   const tel = el("input", { type: "tel", placeholder: "WhatsApp (opcional)", autocomplete: "off" });
   const det = el("textarea", { rows: 4, maxLength: 2000, placeholder: "Qué pidió (ej: Figura de pareja 15 cm, llavero de mascota…)" });
   const tot = el("input", { type: "number", min: "0", step: "1", placeholder: "Total $ (opcional)" });
-  const med = el("select", null, optionsDe(MEDIOS.filter(m => m !== "Web"))); med.value = "En persona";
+  const med = el("select", null, optionsDe(ENTREGAS)); med.value = "En persona";
   const est = el("select", null, optionsDe(ESTADOS));
   const msg = txt("", "st");
   const go = el("button", { textContent: "Guardar pedido", onclick: async () => {
     if (!nom.value.trim() || !det.value.trim()) { msg.textContent = "⚠ Escribe el nombre y qué pidió."; return; }
     go.disabled = true;
-    const j = await admCall({ action: "create", cliente: nom.value.trim(), telefono: tel.value, detalle: det.value.trim(), total: tot.value === "" ? "" : Number(tot.value), medio: med.value, estado: est.value }, msg);
+    const j = await admCall({ action: "create", cliente: nom.value.trim(), telefono: tel.value, detalle: det.value.trim(), total: tot.value === "" ? "" : Number(tot.value), entrega: med.value, estado: est.value }, msg);
     go.disabled = false;
     if (!j) return;
     ADM.pedidos.unshift(j.pedido);
@@ -273,9 +273,9 @@ function tNuevo() {
     msg.textContent = "✔ Pedido registrado: " + j.pedido.id;
     [nom, tel, det, tot].forEach(i => { i.value = ""; });
   } });
-  return el("div", { className: "afm" }, txt("Para pedidos que llegan en persona o por otro medio.", "sub"),
+  return el("div", { className: "afm" }, txt("Para pedidos que llegan en persona o por otro canal.", "sub"),
     el("label", { textContent: "Cliente" }), nom, el("label", { textContent: "WhatsApp" }), tel, el("label", { textContent: "Detalle" }), det,
-    el("label", { textContent: "Total" }), tot, el("label", { textContent: "Medio" }), med, el("label", { textContent: "Estado" }), est, go, msg);
+    el("label", { textContent: "Total" }), tot, el("label", { textContent: "Forma de entrega" }), med, el("label", { textContent: "Estado" }), est, go, msg);
 }
 function tVentas() {
   const ps = ADM.pedidos, conT = ps.filter(p => p.total != null), suma = a => a.reduce((s, p) => s + p.total, 0);
@@ -299,7 +299,7 @@ function tVentas() {
   return el("div", null, tiles,
     grupo("Ventas por mes", p => p.mes, ks => ks.sort().reverse(), mesTxt),
     grupo("Por estado", p => p.estado, ks => ESTADOS.filter(e => ks.includes(e)).concat(ks.filter(k => !ESTADOS.includes(k))), idem),
-    grupo("Por medio de venta", p => p.medio, ks => MEDIOS.filter(e => ks.includes(e)).concat(ks.filter(k => !MEDIOS.includes(k))), idem),
+    grupo("Por forma de entrega", p => p.entrega || "Sin definir", ks => ENTREGAS.filter(e => ks.includes(e)).concat(ks.filter(k => !ENTREGAS.includes(k))), idem),
     ps.length > conT.length ? txt("Los pedidos sin total (por ejemplo, cotizaciones) no suman en las ventas: ábrelos en Pedidos y escribe su total.", "st") : null);
 }
 iniciar();
