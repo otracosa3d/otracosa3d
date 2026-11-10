@@ -95,7 +95,7 @@ select{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px so
 </div></div>
 <script>
 /* ==== DATOS EDITABLES (Claude actualiza esta sección) ==== */
-const CONFIG = { whatsapp: "56950086086", moneda: "CLP", actualizado: "2026-11-09", ventasUrl: "https://script.google.com/macros/s/AKfycby5vE_ynLyK317D30L5ItyCAH0LibkuLoSXgXvv66kb-kTZxe-Dx6416EL4kKrqqiHq/exec" /* URL del Apps Script de seguimiento */ };
+const CONFIG = { whatsapp: "56950086086", moneda: "CLP", actualizado: "2026-11-09", ventasUrl: "https://script.google.com/macros/s/AKfycby9vQ74CiqebTCJPbeQ6Gm7XrgBDQWi0GnCJhQggLmWfc0lCAg6997C7K_sav_Yrymd/exec" /* URL del Apps Script de seguimiento */ };
 /* stock: número = unidades disponibles, null = hecho a pedido. tipo: "venta" (carrito) o "cotiza" (cotizar por WhatsApp) */
 const PRODUCTS = [
   { id: "promo", tipo: "venta", nombre: "Promo Parejas 3D", desc: "Figura de pareja de 15 cm hecha a partir de tus fotos. Regala algo único.", precio: 34990, stock: null, img: "promo" },
@@ -254,6 +254,7 @@ const SUBS = { personalizadas: "Elige el tamaño y haz tu pedido por WhatsApp. D
 const secOf = p => p.cat || (p.tipo === "cotiza" ? "personalizadas" : p.tipo === "llavero" ? "mascota" : p.tipo === "directo" ? "funko" : "promo");
 const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 let sel = "todos";
+const CATKEYS = new Set(CATS.map(c => c[0]));
 
 function renderGrid() {
   const root = $("secs"), gc = {}; root.innerHTML = "";
@@ -277,7 +278,7 @@ function apply() {
   document.querySelectorAll(".chip").forEach(b => b.classList.toggle("on", b.dataset.k === sel));
   let any = false;
   document.querySelectorAll("#secs section").forEach(s => {
-    const inCat = sel === "todos" || s.dataset.sec === sel;
+    const inCat = sel === "todos" ? (q || !CATKEYS.has(s.dataset.sec)) : s.dataset.sec === sel;
     let n = 0;
     s.querySelectorAll(".card").forEach(c => { const ok = inCat && (!q || c.dataset.t.includes(q)); c.hidden = !ok; if (ok) n++; });
     s.hidden = n === 0; if (n) any = true;
