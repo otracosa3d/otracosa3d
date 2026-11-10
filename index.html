@@ -95,7 +95,7 @@ select{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px so
 </div></div>
 <script>
 /* ==== DATOS EDITABLES (Claude actualiza esta sección) ==== */
-const CONFIG = { whatsapp: "56950086086", moneda: "CLP", actualizado: "2026-11-09", ventasUrl: "https://script.google.com/macros/s/AKfycbzEFQTots-Db9_wNp-JfPiEyWgN55GQGQPewb3MEHo-ak0KqpB1MTcjaS66_vGmiip-/exec" /* URL del Apps Script de seguimiento */ };
+const CONFIG = { whatsapp: "56950086086", moneda: "CLP", actualizado: "2026-11-09", ventasUrl: "https://script.google.com/macros/s/AKfycbyUwBkkuveouRZRdFCRPJBlwJCce_tuw6NB1odwwG5iArVLhQ0EVzjEiXTKiS7CaCJl/exec" /* URL del Apps Script de seguimiento */ };
 /* stock: número = unidades disponibles, null = hecho a pedido. tipo: "venta" (carrito) o "cotiza" (cotizar por WhatsApp) */
 const PRODUCTS = [
   { id: "promo", tipo: "venta", nombre: "Promo Parejas 3D", desc: "Figura de pareja de 15 cm hecha a partir de tus fotos. Regala algo único.", precio: 34990, stock: null, img: "promo" },
@@ -191,23 +191,36 @@ function telDigits() {
   return d.length >= 10 ? d : "";
 }
 function registrar(id, cliente, detalle, telefono) {
-  try { if (CONFIG.ventasUrl) fetch(CONFIG.ventasUrl, { method: "POST", mode: "no-cors", keepalive: true, headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ id, cliente, detalle, telefono }) }).catch(() => {}); } catch (e) {}
   try { const l = JSON.parse(localStorage.getItem("oc_seg") || "[]"); l.unshift(id); localStorage.setItem("oc_seg", JSON.stringify(l.slice(0, 20))); } catch (e) {}
+  if (!CONFIG.ventasUrl) return Promise.resolve(false);
+  const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 8000);
+  return fetch(CONFIG.ventasUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ id, cliente, detalle, telefono }), signal: ac.signal })
+    .then(r => r.text()).then(t => /ok/i.test(t)).catch(() => false).finally(() => clearTimeout(tm));
 }
 function mostrarSeg(id) {
   const s = $("seg"); s.innerHTML = ""; s.hidden = false;
   const t = document.createElement("div"); t.textContent = "Tu número de seguimiento:";
   const n = document.createElement("strong"); n.textContent = id;
   const p = document.createElement("div"); p.className = "st"; p.textContent = "Guárdalo: lo usarás para consultar el estado de tu pedido.";
+  const st2 = document.createElement("div"); st2.id = "segst"; st2.className = "st"; st2.textContent = "Registrando tu pedido…";
   const cp = document.createElement("button"); cp.className = "g"; cp.textContent = "Copiar"; cp.onclick = () => { try { navigator.clipboard.writeText(id); cp.textContent = "Copiado"; } catch (e) {} };
   const x = document.createElement("button"); x.className = "g"; x.textContent = "Cerrar"; x.onclick = () => { s.hidden = true; };
   const row = document.createElement("div"); row.className = "row"; row.append(cp, x);
-  s.append(t, n, p, row); $("trkq").value = id;
+  s.append(t, n, p, st2, row); $("trkq").value = id;
 }
 const wa = (m, sinSeg, cliente) => {
-  let msg = m;
-  if (!sinSeg) { const id = genId(); msg += "\nN° de seguimiento: " + id; registrar(id, cliente || $("nom").value.trim(), m, telDigits()); mostrarSeg(id); }
-  window.open("https://wa.me/" + CONFIG.whatsapp + "?text=" + encodeURIComponent(msg), "_blank");
+  let msg = m, reg = null;
+  if (!sinSeg) {
+    const id = genId(); msg += "\nN° de seguimiento: " + id;
+    reg = registrar(id, cliente || $("nom").value.trim(), m, telDigits()); mostrarSeg(id);
+    reg.then(ok => { const e = $("segst"); if (e) e.textContent = ok ? "✔ Pedido registrado." : "⚠ No pudimos confirmar el registro; tu pedido igual llega por WhatsApp."; });
+  }
+  const url = "https://wa.me/" + CONFIG.whatsapp + "?text=" + encodeURIComponent(msg);
+  if (!reg) { window.open(url, "_blank"); return; }
+  const w = window.open("", "_blank");
+  try { w.document.write("<p style='font:18px system-ui;padding:24px'>Registrando tu pedido…</p>"); } catch (e) {}
+  const ir = () => { if (w && !w.closed) w.location.href = url; else location.href = url; };
+  Promise.race([reg, new Promise(r => setTimeout(r, 3500))]).then(ir, ir);
 };
 const maxQ = p => (p.stock === null || p.stock === undefined) ? 10 : p.stock;
 
