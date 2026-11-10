@@ -227,7 +227,8 @@ function tPedidos() {
 function cPedido(p) {
   const msg = txt("", "st");
   const se = el("select", null, optionsDe(ESTADOS, p.estado)); se.value = p.estado;
-  const aviso = el("a", { className: "alink", target: "_blank", rel: "noopener", textContent: "Avisar por WhatsApp", href: waLink(p) || "#", hidden: !p.telefono });
+  const aviso = el("a", { className: "alink", target: "_blank", rel: "noopener", textContent: "Avisar por WhatsApp", href: waLink(p) || "#" });
+  aviso.addEventListener("click", e => { if (!p.telefono) { e.preventDefault(); toast("Primero falta agregar el número del cliente (Editar datos)"); } });
   se.onchange = async () => {
     const j = await admCall({ action: "update", id: p.id, estado: se.value }, msg);
     if (j) { p.estado = se.value; aviso.href = waLink(p) || "#"; msg.textContent = "✔ Estado actualizado"; } else se.value = p.estado;
@@ -242,6 +243,11 @@ function cPedido(p) {
   const det = el("textarea", { rows: 4, maxLength: 2000, value: p.detalle });
   const med = el("select", null, optionsDe(ENTREGAS, p.entrega)); med.value = p.entrega || "En persona";
   const emsg = txt("", "st");
+  const ent = el("select", null, el("option", { value: "", textContent: "Forma de entrega: sin definir" }), optionsDe(ENTREGAS)); ent.value = p.entrega || "";
+  ent.onchange = async () => {
+    const j = await admCall({ action: "update", id: p.id, entrega: ent.value }, msg);
+    if (j) { p.entrega = ent.value; msg.textContent = "✔ Forma de entrega actualizada"; } else ent.value = p.entrega || "";
+  };
   const form = el("div", { hidden: true }, txt("Cliente", "st"), nom, txt("Teléfono", "st"), tel, txt("Detalle", "st"), det, txt("Forma de entrega", "st"), med,
     el("button", { textContent: "Guardar cambios", onclick: async () => {
       const j = await admCall({ action: "update", id: p.id, cliente: nom.value.trim(), telefono: tel.value, detalle: det.value, entrega: med.value }, emsg);
@@ -252,7 +258,7 @@ function cPedido(p) {
   return el("div", { className: "card" },
     el("div", { className: "arow" }, el("strong", { textContent: p.id }), txt(p.fecha, "st")),
     txt((p.cliente || "(sin nombre)") + (p.telefono ? " · +" + p.telefono : "") + (p.entrega ? " · " + p.entrega : ""), "d"),
-    txt(p.detalle, "adet"), se, el("div", { className: "arow" }, tot, gt), aviso, el("div", { className: "arow" }, ed, del), form, msg);
+    txt(p.detalle, "adet"), se, ent, el("div", { className: "arow" }, tot, gt), aviso, el("div", { className: "arow" }, ed, del), form, msg);
 }
 function tNuevo() {
   const nom = el("input", { placeholder: "Nombre del cliente", autocomplete: "off" });
