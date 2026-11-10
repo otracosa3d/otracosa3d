@@ -73,6 +73,13 @@ select{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px so
 #cerr{color:#d6336c;font-weight:700;margin:0 0 8px;font-size:.9rem}
 #send{width:100%;padding:13px;margin-bottom:8px}
 #seguir{width:100%;padding:10px}
+#trkmodal{position:fixed;inset:0;z-index:50;background:rgba(20,5,40,.55);display:flex;align-items:center;justify-content:center;padding:20px}
+.mbox{background:var(--card);border:3px solid var(--bd);box-shadow:6px 6px 0 var(--sh);border-radius:20px;padding:20px;max-width:440px;width:100%;max-height:90vh;overflow:auto;text-align:center}
+.mbox h2{margin:0 0 4px}
+#mtxt{font-size:1.15rem;font-weight:800;color:var(--hd);margin:10px 0}
+#mprog .prog{grid-template-columns:repeat(2,1fr)}
+#mdias{margin:12px 0;font-weight:600}
+#mx{width:100%;padding:12px}
 </style>
 </head>
 <body>
@@ -96,6 +103,7 @@ select{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px so
 </div>
 </div>
 </main>
+<div id="trkmodal" hidden><div class="mbox"><h2>Estado de tu pedido</h2><div id="mid" class="st"></div><div id="mtxt"></div><div id="mprog"></div><div id="mdias"></div><button id="mx">Entendido</button></div></div>
 <div id="seg" hidden></div>
 <button id="cartbtn" hidden>🛒 Ver carrito (<span id="cn">0</span>) · <span id="ct">$0</span></button>
 <div id="cartview" hidden>
@@ -317,21 +325,56 @@ function apply() {
 $("q").oninput = () => { if ($("q").value) sel = "todos"; apply(); };
 
 const ESTADOS = ["Agendado", "En preparación", "Listo para entrega", "Entregado"];
+const PLAZO = 7;
+const FERIADOS = ["01-01","05-01","05-21","07-16","08-15","09-18","09-19","11-01","12-08","12-25"]; /* feriados fijos (MM-DD) */
+const TEXTOS = ["Tu pedido se encuentra agendado. Pronto comenzaremos a prepararlo.", "Tu pedido se encuentra en preparación.", "Tu pedido se encuentra listo para entrega.", "Tu pedido ya fue entregado. ¡Gracias por elegir Otra Cosa 3D!"];
+const fechaDeId = id => { const m = /^OC-(\d{2})(\d{2})(\d{2})-/.exec(id); return m ? new Date(2000 + Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; };
+function diasHabilesDesde(d0) {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const d = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate());
+  let n = 0;
+  while (d < hoy) {
+    d.setDate(d.getDate() + 1);
+    const w = d.getDay(), k = String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+    if (w !== 0 && w !== 6 && !FERIADOS.includes(k)) n++;
+  }
+  return n;
+}
+function ventana(id, texto, k, extra) {
+  $("mid").textContent = id ? "N° " + id : "";
+  $("mtxt").textContent = texto;
+  const pg = $("mprog"); pg.innerHTML = "";
+  if (k >= 0) {
+    const box = document.createElement("div"); box.className = "prog";
+    ESTADOS.forEach((e, i) => { const s = document.createElement("div"); s.className = "ps" + (i <= k ? " on" : "") + (i === k ? " cur" : ""); s.textContent = e; box.appendChild(s); });
+    pg.appendChild(box);
+  }
+  $("mdias").textContent = extra || "";
+  $("trkmodal").hidden = false;
+}
+$("mx").onclick = () => { $("trkmodal").hidden = true; };
+$("trkmodal").onclick = e => { if (e.target === $("trkmodal")) $("trkmodal").hidden = true; };
 $("trkb").onclick = async () => {
   const id = $("trkq").value.trim().toUpperCase(), out = $("trkr"); out.textContent = "";
   if (!id) return;
-  if (!CONFIG.ventasUrl) { out.textContent = "El seguimiento en línea aún no está activo. Escríbenos por WhatsApp con tu número."; return; }
+  if (!CONFIG.ventasUrl) { ventana("", "El seguimiento en línea aún no está activo. Escríbenos por WhatsApp con tu número.", -1, ""); return; }
   out.textContent = "Buscando…";
   try {
     const r = await (await fetch(CONFIG.ventasUrl + "?id=" + encodeURIComponent(id))).json();
     out.textContent = "";
-    if (!r.found) { out.textContent = "No encontramos ese número todavía. Revisa que esté bien escrito; si acabas de pedir, puede tardar unos segundos en registrarse."; return; }
+    if (!r.found) { ventana(id, "No encontramos ese número todavía. Revisa que esté bien escrito; si acabas de pedir, puede tardar unos segundos en registrarse.", -1, ""); return; }
     const k = ESTADOS.findIndex(e => norm(e) === norm(r.estado));
-    if (k < 0) { out.textContent = "Estado: " + r.estado; return; }
-    const box = document.createElement("div"); box.className = "prog";
-    ESTADOS.forEach((e, i) => { const s = document.createElement("div"); s.className = "ps" + (i <= k ? " on" : "") + (i === k ? " cur" : ""); s.textContent = e; box.appendChild(s); });
-    out.appendChild(box);
-  } catch (e) { out.textContent = "No pudimos consultar ahora. Intenta de nuevo más tarde o escríbenos por WhatsApp."; }
+    if (k < 0) { ventana(id, "El estado de tu pedido es: " + r.estado + ".", -1, ""); return; }
+    let extra = "";
+    const f = fechaDeId(id);
+    if (k < 3 && f) {
+      const rest = Math.max(0, PLAZO - diasHabilesDesde(f));
+      extra = rest > 0
+        ? "Todas las entregas tienen un plazo de hasta " + PLAZO + " días hábiles. " + (rest === 1 ? "Te queda 1 día hábil" : "Te quedan " + rest + " días hábiles") + " como máximo."
+        : "El plazo de " + PLAZO + " días hábiles ya se cumplió. Escríbenos por WhatsApp y te contamos cómo va tu pedido.";
+    }
+    ventana(id, TEXTOS[k], k, extra);
+  } catch (e) { out.textContent = ""; ventana("", "No pudimos consultar ahora. Intenta de nuevo más tarde o escríbenos por WhatsApp.", -1, ""); }
 };
 try { $("trkq").value = JSON.parse(localStorage.getItem("oc_seg") || "[]")[0] || ""; } catch (e) {}
 
