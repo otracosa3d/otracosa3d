@@ -41,6 +41,21 @@ input{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px sol
 .step:nth-child(3) b{background:#7b0fa3;color:#fff}
 .step h3{margin:0 0 4px;font-size:1rem;font-weight:800;color:var(--hd)}
 .step p{margin:0;font-size:.88rem;color:var(--mu)}
+[hidden]{display:none!important}
+#menu{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding:10px 0 8px}
+#q{margin-bottom:8px}
+#chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;scrollbar-width:thin}
+.chip{flex:none;background:transparent;color:var(--tx);border:2px solid var(--bd);border-radius:999px;padding:6px 14px;font-weight:700;font-size:.9rem}
+.chip.on{background:var(--ac);color:var(--acx)}
+#nores{color:var(--mu);text-align:center;padding:28px 0}
+.trk{display:flex;gap:8px}.trk input{margin:0;flex:1}
+#trkr{margin-top:10px;color:var(--mu);font-weight:600}
+.prog{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.ps{padding:10px;border:2px solid var(--bd);border-radius:12px;text-align:center;font-weight:700;font-size:.88rem;color:var(--mu)}
+.ps.on{background:var(--sh);color:#1a0a2e;border-color:var(--sh)}
+.ps.cur{background:var(--ac);color:var(--acx);border-color:var(--bd)}
+#seg{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:12px;right:12px;max-width:420px;margin:auto;z-index:30;background:var(--card);border:2.5px solid var(--bd);box-shadow:5px 5px 0 var(--sh);border-radius:16px;padding:12px 14px;font-weight:600}
+#seg strong{display:block;font-size:1.25rem;color:var(--hd);letter-spacing:.5px}
 .card img{width:100%;aspect-ratio:3/4;object-fit:contain;background:#fff;border-radius:10px;border:2px solid var(--bd)}
 h2{margin:22px 0 4px;font-size:1.25rem;font-weight:800;color:var(--hd)}
 .sub{margin:0 0 12px;color:var(--mu);font-size:.92rem}
@@ -53,15 +68,14 @@ select{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px so
   <p>Figuras 3D personalizadas a partir de tus fotos. Tu idea · Tu estilo · Tu figura.</p>
 </header>
 <main>
-<h2>Promo del momento</h2><div class="grid" id="g1"></div>
-<h2>Figuras personalizadas</h2>
-<p class="sub">Elige el tamaño y haz tu pedido por WhatsApp. Debes enviarnos 2 fotos de la persona.</p>
-<div class="grid" id="g2"></div>
-<h2>Llaveros de mascota</h2>
-<div class="grid" id="g3"></div>
-<h2>Más productos</h2>
-<div class="grid" id="g4"></div>
-<div id="cats"></div>
+<div id="menu"><input id="q" type="search" placeholder="Buscar productos…" autocomplete="off"><div id="chips"></div></div>
+<div id="secs"></div>
+<div id="nores" hidden>No encontramos productos con esa búsqueda. Escríbenos por WhatsApp y te ayudamos.</div>
+<div id="guia">
+<h2>Consulta tu pedido</h2>
+<p class="sub">Ingresa tu número de seguimiento para ver el estado de tu pedido.</p>
+<div class="trk"><input id="trkq" placeholder="Ej: OC-261110-K7P2Q" autocomplete="off"><button id="trkb">Consultar</button></div>
+<div id="trkr"></div>
 <h2>¿Cómo encargar tu figura 3D?</h2>
 <div class="steps">
 <div class="step"><b>1</b><h3>Elige el tamaño</h3><p>Escoge entre 10, 15 o 20 cm.</p></div>
@@ -70,7 +84,9 @@ select{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px so
 <div class="step"><b>4</b><h3>Realiza el pago</h3><p>Te compartimos los datos de pago por WhatsApp.</p></div>
 <div class="step"><b>5</b><h3>Fabricamos y entregamos</h3><p>Hasta 7 días hábiles.</p></div>
 </div>
+</div>
 </main>
+<div id="seg" hidden></div>
 <div id="bar"><div>
   <div id="items"></div>
   <input id="nom" placeholder="Tu nombre (opcional)" autocomplete="name">
@@ -78,7 +94,7 @@ select{font:inherit;width:100%;padding:8px 10px;border-radius:10px;border:2px so
 </div></div>
 <script>
 /* ==== DATOS EDITABLES (Claude actualiza esta sección) ==== */
-const CONFIG = { whatsapp: "56950086086", moneda: "CLP", actualizado: "2026-11-09" };
+const CONFIG = { whatsapp: "56950086086", moneda: "CLP", actualizado: "2026-11-09", ventasUrl: "" /* URL del Apps Script de seguimiento */ };
 /* stock: número = unidades disponibles, null = hecho a pedido. tipo: "venta" (carrito) o "cotiza" (cotizar por WhatsApp) */
 const PRODUCTS = [
   { id: "promo", tipo: "venta", nombre: "Promo Parejas 3D", desc: "Figura de pareja de 15 cm hecha a partir de tus fotos. Regala algo único.", precio: 34990, stock: null, img: "promo" },
@@ -163,7 +179,30 @@ const IMG = {"promo": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAA
 const fmt = n => "$" + Number(n).toLocaleString("es-CL");
 const cart = {};
 const $ = id => document.getElementById(id);
-const wa = m => window.open("https://wa.me/" + CONFIG.whatsapp + "?text=" + encodeURIComponent(m), "_blank");
+function genId() {
+  const A = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", d = new Date(), a = new Uint32Array(5);
+  crypto.getRandomValues(a);
+  return "OC-" + String(d.getFullYear()).slice(2) + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0") + "-" + Array.from(a, v => A[v % 32]).join("");
+}
+function registrar(id, cliente, detalle) {
+  try { if (CONFIG.ventasUrl) fetch(CONFIG.ventasUrl, { method: "POST", mode: "no-cors", keepalive: true, headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ id, cliente, detalle }) }).catch(() => {}); } catch (e) {}
+  try { const l = JSON.parse(localStorage.getItem("oc_seg") || "[]"); l.unshift(id); localStorage.setItem("oc_seg", JSON.stringify(l.slice(0, 20))); } catch (e) {}
+}
+function mostrarSeg(id) {
+  const s = $("seg"); s.innerHTML = ""; s.hidden = false;
+  const t = document.createElement("div"); t.textContent = "Tu número de seguimiento:";
+  const n = document.createElement("strong"); n.textContent = id;
+  const p = document.createElement("div"); p.className = "st"; p.textContent = "Guárdalo: lo usarás para consultar el estado de tu pedido.";
+  const cp = document.createElement("button"); cp.className = "g"; cp.textContent = "Copiar"; cp.onclick = () => { try { navigator.clipboard.writeText(id); cp.textContent = "Copiado"; } catch (e) {} };
+  const x = document.createElement("button"); x.className = "g"; x.textContent = "Cerrar"; x.onclick = () => { s.hidden = true; };
+  const row = document.createElement("div"); row.className = "row"; row.append(cp, x);
+  s.append(t, n, p, row); $("trkq").value = id;
+}
+const wa = (m, sinSeg, cliente) => {
+  let msg = m;
+  if (!sinSeg) { const id = genId(); msg += "\nN° de seguimiento: " + id; registrar(id, cliente || "", m); mostrarSeg(id); }
+  window.open("https://wa.me/" + CONFIG.whatsapp + "?text=" + encodeURIComponent(msg), "_blank");
+};
 const maxQ = p => (p.stock === null || p.stock === undefined) ? 10 : p.stock;
 
 function card(p) {
@@ -181,7 +220,7 @@ function card(p) {
   if (p.tipo === "cotiza" && p.soloCotiza) {
     nota = document.createElement("div"); nota.className = "st"; nota.textContent = "📷 Debes enviarnos 2 fotos de la persona por WhatsApp.";
     b.textContent = "Cotiza por WhatsApp";
-    b.onclick = () => wa("Hola, quiero cotizar: " + p.nombre.toLowerCase() + ". Te envío 2 fotos de la persona.");
+    b.onclick = () => wa("Hola, quiero cotizar: " + p.nombre.toLowerCase() + ". Te envío 2 fotos de la persona.", true);
   } else if (p.tipo === "cotiza") {
     sel = document.createElement("select");
     TAMANOS.forEach((t, i) => { const o = document.createElement("option"); o.value = i; o.textContent = t.cm + " cm · " + fmt(t.precio); sel.appendChild(o); });
@@ -203,12 +242,63 @@ function card(p) {
   return c;
 }
 
+const SECS = [["promo","Promo del momento"],["personalizadas","Figuras personalizadas"],["mascota","Llaveros de mascota"],["funko","Funko Pop"]].concat(CATS);
+const CHIP = { promo: "Promo", personalizadas: "Personalizadas", mascota: "Llavero mascota" };
+const SUBS = { personalizadas: "Elige el tamaño y haz tu pedido por WhatsApp. Debes enviarnos 2 fotos de la persona." };
+const secOf = p => p.cat || (p.tipo === "cotiza" ? "personalizadas" : p.tipo === "llavero" ? "mascota" : p.tipo === "directo" ? "funko" : "promo");
+const norm = s => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+let sel = "todos";
+
 function renderGrid() {
-  ["g1", "g2", "g3", "g4", "cats"].forEach(i => $(i).innerHTML = "");
-  const gc = {};
-  CATS.forEach(([k, t]) => { const hd = document.createElement("h2"); hd.textContent = t; const g = document.createElement("div"); g.className = "grid"; gc[k] = g; $("cats").append(hd, g); });
-  PRODUCTS.forEach(p => (p.cat ? gc[p.cat] : p.tipo === "cotiza" ? $("g2") : p.tipo === "llavero" ? $("g3") : p.tipo === "directo" ? $("g4") : $("g1")).appendChild(card(p)));
+  const root = $("secs"), gc = {}; root.innerHTML = "";
+  SECS.forEach(([k, t]) => {
+    const s = document.createElement("section"); s.dataset.sec = k;
+    const hd = document.createElement("h2"); hd.textContent = t; s.appendChild(hd);
+    if (SUBS[k]) { const sb = document.createElement("p"); sb.className = "sub"; sb.textContent = SUBS[k]; s.appendChild(sb); }
+    const g = document.createElement("div"); g.className = "grid"; s.appendChild(g); gc[k] = g; root.appendChild(s);
+  });
+  PRODUCTS.forEach(p => { const c = card(p); c.dataset.t = norm(p.nombre + " " + (p.desc || "")); gc[secOf(p)].appendChild(c); });
+  const ch = $("chips"); ch.innerHTML = "";
+  [["todos", "Todos"]].concat(SECS.map(([k, t]) => [k, CHIP[k] || t])).forEach(([k, t]) => {
+    const b = document.createElement("button"); b.className = "chip"; b.dataset.k = k; b.textContent = t;
+    b.onclick = () => { sel = k; $("q").value = ""; apply(); }; ch.appendChild(b);
+  });
+  apply();
 }
+
+function apply() {
+  const q = norm($("q").value.trim());
+  document.querySelectorAll(".chip").forEach(b => b.classList.toggle("on", b.dataset.k === sel));
+  let any = false;
+  document.querySelectorAll("#secs section").forEach(s => {
+    const inCat = sel === "todos" || s.dataset.sec === sel;
+    let n = 0;
+    s.querySelectorAll(".card").forEach(c => { const ok = inCat && (!q || c.dataset.t.includes(q)); c.hidden = !ok; if (ok) n++; });
+    s.hidden = n === 0; if (n) any = true;
+  });
+  $("nores").hidden = any;
+  $("guia").hidden = !(sel === "todos" && !q);
+}
+$("q").oninput = () => { if ($("q").value) sel = "todos"; apply(); };
+
+const ESTADOS = ["Agendado", "En preparación", "Listo para entrega", "Entregado"];
+$("trkb").onclick = async () => {
+  const id = $("trkq").value.trim().toUpperCase(), out = $("trkr"); out.textContent = "";
+  if (!id) return;
+  if (!CONFIG.ventasUrl) { out.textContent = "El seguimiento en línea aún no está activo. Escríbenos por WhatsApp con tu número."; return; }
+  out.textContent = "Buscando…";
+  try {
+    const r = await (await fetch(CONFIG.ventasUrl + "?id=" + encodeURIComponent(id))).json();
+    out.textContent = "";
+    if (!r.found) { out.textContent = "No encontramos ese número todavía. Revisa que esté bien escrito; si acabas de pedir, puede tardar unos segundos en registrarse."; return; }
+    const k = ESTADOS.findIndex(e => norm(e) === norm(r.estado));
+    if (k < 0) { out.textContent = "Estado: " + r.estado; return; }
+    const box = document.createElement("div"); box.className = "prog";
+    ESTADOS.forEach((e, i) => { const s = document.createElement("div"); s.className = "ps" + (i <= k ? " on" : "") + (i === k ? " cur" : ""); s.textContent = e; box.appendChild(s); });
+    out.appendChild(box);
+  } catch (e) { out.textContent = "No pudimos consultar ahora. Intenta de nuevo más tarde o escríbenos por WhatsApp."; }
+};
+try { $("trkq").value = JSON.parse(localStorage.getItem("oc_seg") || "[]")[0] || ""; } catch (e) {}
 
 function add(id, n) {
   const p = PRODUCTS.find(x => x.id === id);
@@ -244,7 +334,7 @@ $("send").onclick = () => {
     total += p.precio * q; if (p.stock === null) pedido = true;
     return "• " + q + " x " + p.nombre + " (" + fmt(p.precio * q) + ")";
   });
-  wa("Hola, quiero hacer un pedido" + (nom ? " a nombre de " + nom : "") + ":\n" + lineas.join("\n") + "\nTotal: " + fmt(total) + (pedido ? "\nTe envío las fotos para armar la figura." : ""));
+  wa("Hola, quiero hacer un pedido" + (nom ? " a nombre de " + nom : "") + ":\n" + lineas.join("\n") + "\nTotal: " + fmt(total) + (pedido ? "\nTe envío las fotos para armar la figura." : ""), false, nom);
 };
 
 renderGrid(); renderCart();
