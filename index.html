@@ -317,7 +317,7 @@ function card(p) {
   return c;
 }
 
-const SECS = [["promo","Promo del momento"],["personalizadas","Figuras personalizadas"],["mascota","Llaveros de mascota"],["funko","Funko Pop"]].concat(CATS);
+const SECS = [["personalizadas","Figuras personalizadas"],["funko","Funko Pop"],["mascota","Llaveros de mascota"]].concat(CATS, [["promo","Promo del momento"]]);
 const CHIP = { promo: "Promo", personalizadas: "Personalizadas", mascota: "Llavero mascota" };
 const SUBS = { personalizadas: "Elige el tamaño y agrégalo al carrito. Debes enviarnos 2 fotos de la persona por WhatsApp." };
 const secOf = p => p.cat || (p.tipo === "cotiza" ? "personalizadas" : p.tipo === "llavero" ? "mascota" : p.tipo === "directo" ? "funko" : "promo");
