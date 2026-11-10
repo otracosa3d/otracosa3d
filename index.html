@@ -245,11 +245,11 @@ function telDigits(v) {
   if (d.length === 9 && d[0] === "9") d = "56" + d;
   return d.length >= 10 ? d : "";
 }
-function registrar(id, cliente, detalle, telefono) {
+function registrar(id, cliente, detalle, telefono, total) {
   try { const l = JSON.parse(localStorage.getItem("oc_seg") || "[]"); l.unshift(id); localStorage.setItem("oc_seg", JSON.stringify(l.slice(0, 20))); } catch (e) {}
   if (!CONFIG.ventasUrl) return Promise.resolve(false);
   const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 8000);
-  return fetch(CONFIG.ventasUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ id, cliente, detalle, telefono }), signal: ac.signal })
+  return fetch(CONFIG.ventasUrl, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ id, cliente, detalle, telefono, total: total == null ? null : total, medio: "Web" }), signal: ac.signal })
     .then(r => r.text()).then(t => /ok/i.test(t)).catch(() => false).finally(() => clearTimeout(tm));
 }
 function mostrarSeg(id) {
@@ -263,11 +263,11 @@ function mostrarSeg(id) {
   const row = document.createElement("div"); row.className = "row"; row.append(cp, x);
   s.append(t, n, p, st2, row); $("trkq").value = id;
 }
-const wa = (m, sinSeg, cliente) => {
+const wa = (m, sinSeg, cliente, total) => {
   let msg = m, reg = null;
   if (!sinSeg) {
     const id = genId(); msg += "\nN° de seguimiento: " + id;
-    reg = registrar(id, cliente || $("nom").value.trim(), m, telDigits()); mostrarSeg(id);
+    reg = registrar(id, cliente || $("nom").value.trim(), m, telDigits(), total); mostrarSeg(id);
     reg.then(ok => { const e = $("segst"); if (e) e.textContent = ok ? "✔ Pedido registrado." : "⚠ No pudimos confirmar el registro; tu pedido igual llega por WhatsApp."; });
   }
   const url = "https://wa.me/" + CONFIG.whatsapp + "?text=" + encodeURIComponent(msg);
@@ -456,7 +456,7 @@ $("send").onclick = () => {
     total += pr * q; return "• " + q + " x " + nombreDe(p, tam) + " (" + fmt(pr * q) + ")";
   });
   const msg = "Hola, quiero hacer un pedido a nombre de " + nom + ":\n" + lineas.join("\n") + "\nTotal: " + fmt(total) + (cot ? " + ítems por cotizar" : "") + (fs.size ? "\nTe envío " + [...fs].join(" y ") + "." : "");
-  wa(msg, false, nom);
+  wa(msg, false, nom, total > 0 ? total : null);
   Object.keys(cart).forEach(k => delete cart[k]);
   renderCart(); cerrarCarrito();
 };
